@@ -1,0 +1,236 @@
+
+
+
+import pygame
+import sys
+
+# Initialisation de Pygame
+pygame.init()
+
+# Définir les couleurs
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GREEN = (0, 255, 0)
+RED = (255, 0, 0)
+BLUE = (0, 0, 255)
+
+# Définir les dimensions de la fenêtre
+screen = pygame.display.set_mode((800, 800))
+pygame.display.set_caption("jeu cran")
+
+# Définir la police
+font = pygame.font.SysFont(None, 55)
+
+# Charger l'image de fond
+background_image = pygame.image.load('PXL_20231119_164113461.MP.jpg')
+
+# fonction du jeu
+def mon_jeu():
+    fenetre = pygame.display.set_mode((800, 800))
+    pygame.display.set_caption("Schéma du Circuit")
+
+    # Charger l'image de fond
+    background_image = pygame.image.load('PXL_20231119_164113461.MP.jpg')
+
+    NOIR = (0, 0, 0)
+    BLANC = (255, 255, 255)
+    ROUGE = (255, 0, 0)
+    BLEU = (0, 0, 255)
+
+    points = [
+        (100, 300), (700, 300), (100, 100), (100, 500),
+        (700, 100), (700, 500), (300, 300), (300, 500),
+        (500, 300), (500, 100),
+    ]
+
+    lignes_gagnantes = [
+        (2, 0, 3), (4, 1, 5), (0, 6, 8), (6, 8, 1),
+    ]
+
+    connexions = [
+        (2, 0), (0, 3), (0, 6), (6, 7),
+        (6, 8), (8, 9), (8, 1), (4, 1),
+        (1, 5)
+    ]
+
+    PHASE_PLACEMENT = 0
+    PHASE_DEPLACEMENT = 1
+    PHASE_FIN = 2
+
+    joueur1 = []
+    joueur2 = []
+    phase_jeu = PHASE_PLACEMENT
+    tour_joueur1 = True
+    gagnant = None
+    bouteille_selectionnee = None
+    RAYON_BOUTEILLE = 20
+
+    def est_aligne(bouteilles, lignes_gagnantes):
+        for ligne in lignes_gagnantes:
+            if all(point in bouteilles for point in ligne):
+                return True
+        return False
+
+    def deplacer_bouteille_avec_animation(joueur, bouteille_selectionnee, nouveau_point, joueur_adverse, connexions):
+        if (bouteille_selectionnee, nouveau_point) in connexions or (nouveau_point, bouteille_selectionnee) in connexions:
+            if nouveau_point not in joueur and nouveau_point not in joueur_adverse:
+                start_pos = points[bouteille_selectionnee]
+                end_pos = points[nouveau_point]
+
+                for i in range(30):
+                    interpolation = i / 30
+                    pos_x = start_pos[0] + (end_pos[0] - start_pos[0]) * interpolation
+                    pos_y = start_pos[1] + (end_pos[1] - start_pos[1]) * interpolation
+
+                    fenetre.blit(background_image, [0, 0])
+
+                    for a, b in connexions:
+                        pygame.draw.line(fenetre, NOIR, points[a], points[b], 2)
+
+                    for i, (x, y) in enumerate(points):
+                        couleur = NOIR
+                        if i in joueur1:
+                            couleur = ROUGE
+                        elif i in joueur2:
+                            couleur = BLEU
+                        if i == bouteille_selectionnee:
+                            pygame.draw.circle(fenetre, couleur, (int(pos_x), int(pos_y)), RAYON_BOUTEILLE)
+                        else:
+                            pygame.draw.circle(fenetre, couleur, (x, y), RAYON_BOUTEILLE)
+
+                    pygame.display.flip()
+                    pygame.time.delay(30)
+
+                joueur[joueur.index(bouteille_selectionnee)] = nouveau_point
+                return True
+        return False
+
+    horloge = pygame.time.Clock()
+    en_cours = True
+    message = ""
+    font = pygame.font.Font(None, 26)
+
+    while en_cours:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                en_cours = False
+
+            if event.type == pygame.MOUSEBUTTONDOWN and phase_jeu != PHASE_FIN:
+                x, y = event.pos
+                for i, (px, py) in enumerate(points):
+                    if (x - px) ** 2 + (y - py) ** 2 <= RAYON_BOUTEILLE ** 2:
+                        if phase_jeu == PHASE_PLACEMENT:
+                            if i not in joueur1 and i not in joueur2:
+                                if tour_joueur1 and len(joueur1) < 3:
+                                    joueur1.append(i)
+                                    tour_joueur1 = False
+                                    message = "Joueur 2 à vous de jouer"
+                                elif not tour_joueur1 and len(joueur2) < 3:
+                                    joueur2.append(i)
+                                    tour_joueur1 = True
+                                    message = "Joueur 1 à vous de jouer"
+                                if len(joueur1) == 3 and len(joueur2) == 3:
+                                    phase_jeu = PHASE_DEPLACEMENT
+                            else:
+                                message = "Deja occupé "
+                        elif phase_jeu == PHASE_DEPLACEMENT:
+                            if tour_joueur1 and i in joueur1:
+                                bouteille_selectionnee = i
+                                message = "Déplacez la bouteille"
+                            elif not tour_joueur1 and i in joueur2:
+                                bouteille_selectionnee = i
+                                message = "Déplacez la bouteille"
+                            else:
+                                if bouteille_selectionnee is not None:
+                                    if tour_joueur1:
+                                        if deplacer_bouteille_avec_animation(joueur1, bouteille_selectionnee, i, joueur2, connexions):
+                                            if est_aligne(joueur1, lignes_gagnantes):
+                                                gagnant = "Joueur 1"
+                                                phase_jeu = PHASE_FIN
+                                                message = "Joueur 1 a gagné!"
+                                            else:
+                                                tour_joueur1 = not tour_joueur1
+                                                message = " A vous le Tour Joueur 2"
+                                        else:
+                                            message = "Mouvement invalide"
+                                    else:
+                                        if deplacer_bouteille_avec_animation(joueur2, bouteille_selectionnee, i, joueur1, connexions):
+                                            if est_aligne(joueur2, lignes_gagnantes):
+                                                gagnant = "Joueur 2"
+                                                phase_jeu = PHASE_FIN
+                                                message = "Joueur 2 a gagné!"
+                                            else:
+                                                tour_joueur1 = not tour_joueur1
+                                                message = "a vous le Tour Joueur 1"
+                                        else:
+                                            message = "Mouvement invalide"
+                                    bouteille_selectionnee = None
+                        break
+
+        fenetre.blit(background_image, [0, 0])
+
+        for a, b in connexions:
+            pygame.draw.line(fenetre, NOIR, points[a], points[b], 2)
+
+        for i, (x, y) in enumerate(points):
+            couleur = NOIR
+            if i in joueur1:
+                couleur = ROUGE
+            elif i in joueur2:
+                couleur = BLEU
+            pygame.draw.circle(fenetre, couleur, (x, y), RAYON_BOUTEILLE)
+
+        texte = font.render(message, True, NOIR)
+        fenetre.blit(texte, (10, 10))
+
+        if gagnant:
+            font = pygame.font.Font(None, 74)
+            texte = font.render(f"{gagnant} a gagné !", True, NOIR)
+            fenetre.blit(texte, (200, 400))
+
+        pygame.display.flip()
+        horloge.tick(30)
+
+    pygame.quit()
+    sys.exit()
+
+# Fonction pour dessiner un bouton
+def draw_button(screen, msg, x, y, w, h, inactive_color, active_color, action=None):
+    mouse = pygame.mouse.get_pos()
+    click = pygame.mouse.get_pressed()
+
+    if x + w > mouse[0] > x and y + h > mouse[1] > y:
+        pygame.draw.rect(screen, active_color, (x, y, w, h))
+        if click[0] == 1 and action is not None:
+            action()
+    else:
+        pygame.draw.rect(screen, inactive_color, (x, y, w, h))
+
+    text_surf = font.render(msg, True, BLACK)
+    text_rect = text_surf.get_rect(center=((x + (w / 2)), (y + (h / 2))))
+    screen.blit(text_surf, text_rect)
+
+# Fonction pour quitter le jeu
+def quit_game():
+    pygame.quit()
+    sys.exit()
+
+# Fonction principale pour l'interface de démarrage
+def game_loop():
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+        screen.blit(background_image, [0, 0])
+        draw_button(screen, 'Jouer', 350, 250, 160, 50, GREEN, BLACK, mon_jeu)
+        draw_button(screen, 'Quitter', 350, 350, 160, 50, RED, BLACK, quit_game)
+
+        pygame.display.update()
+
+if __name__ == '__main__':
+    game_loop()
+
+
